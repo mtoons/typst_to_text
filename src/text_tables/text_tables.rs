@@ -973,7 +973,7 @@ pub fn superscript(string: String) -> String {
             result.push(r);
         }
     }
-    return result;
+    result
 }
 fn c_superscript(char: char) -> char {
     match char {
@@ -1078,7 +1078,7 @@ pub fn subscript(string: String) -> String {
             result.push(r);
         }
     }
-    return result;
+    result
 }
 fn c_subscript(char: char) -> char {
     match char {

@@ -959,7 +959,7 @@ pub fn expand_math_shortcut(string: String) -> String {
         "<=>" => "⇔",
         "<==>" => "⟺ ",
         "<-->" => "⟷",
-        _ => string.as_str(),
+        _ => return string,
     }
     .to_string()
 }
@@ -1073,7 +1073,7 @@ pub fn subscript(string: String) -> String {
     for c in string.chars() {
         let r: char = c_subscript(c);
         if r == '\0' {
-            return format!("_({})", string);
+            return format!("_{}", string);
         } else {
             result.push(r);
         }

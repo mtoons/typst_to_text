@@ -10,7 +10,7 @@ fn main() {
         input.push(' ');
         input.push_str(&elem);
     }
-    let nodes: GrammarItem = input.parse().unwrap();
+    let nodes = GrammarItem::parse_string(input);
 
-    print!("{}", nodes);
+    println!("{}", nodes.render());
 }

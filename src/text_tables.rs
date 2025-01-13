@@ -918,8 +918,8 @@ pub fn name_to_symbol(string: String) -> String {
     .to_string()
 }
 
-pub fn expand_math_shortcut(string: String) -> String {
-    match string.as_str() {
+pub fn expand_math_shortcut(string: &str) -> &str {
+    match string {
         "[|" => "⟦",
         "|]" => "⟧",
         "||" => "‖",
@@ -959,9 +959,8 @@ pub fn expand_math_shortcut(string: String) -> String {
         "<=>" => "⇔",
         "<==>" => "⟺ ",
         "<-->" => "⟷",
-        _ => return string,
+        _ => "",
     }
-    .to_string()
 }
 pub fn superscript(string: String) -> String {
     let mut result: String = Default::default();
@@ -1073,7 +1072,7 @@ pub fn subscript(string: String) -> String {
     for c in string.chars() {
         let r: char = c_subscript(c);
         if r == '\0' {
-            return format!("_{}", string);
+            return format!("_({})", string);
         } else {
             result.push(r);
         }

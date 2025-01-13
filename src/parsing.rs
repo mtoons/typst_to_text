@@ -1,15 +1,15 @@
-use crate::text_tables::{name_to_symbol, subscript, superscript};
+use crate::text_tables::{expand_math_shortcut, name_to_symbol, subscript, superscript};
 
-// maybe switch to range
-// else think of replacing Vec with Box
+// Lexical item can contain several copies of itself or a more concrete type
 pub enum GrammarItem {
     Content(Vec<GrammarItem>),
     Brackets(Brackets),
     Symbol(String),
-    // Number(f64),
     Literal(String),
-    // Nothing,
+    Unknown(char),
 }
+
+// Different types of brackets
 pub enum Brackets {
     Parentheses(Box<GrammarItem>),
     Squirly(Box<GrammarItem>),
@@ -49,6 +49,7 @@ impl Brackets {
 }
 
 impl GrammarItem {
+    // Render the final output
     pub fn render(&self) -> String {
         let mut text: String = "".to_string();
         match self {
@@ -63,145 +64,152 @@ impl GrammarItem {
             GrammarItem::Symbol(symbol) => {
                 text.push_str(symbol);
             }
-            // GrammarItem::Number(number) => {
-            //     text.push_str(&number.to_string());
-            // }
             GrammarItem::Literal(literal) => {
                 text.push_str(literal);
-            } // GrammarItem::Nothing => {}
+            }
+            GrammarItem::Unknown(c) => {
+                text.push(*c);
+            }
         };
         text
     }
-    pub fn parse_string(typst: String) -> GrammarItem {
-        let mut item: Vec<GrammarItem> = Vec::new();
-        let mut i = 0;
-        let mut iter = typst.char_indices();
-        while i < typst.len() {
-            i += 1;
-        }
-        while let Some(elem) = iter.next() {
-            let char = elem.1;
-            let i = elem.0;
-            item.push(if char == '(' {
-                match typst[i..].find(')') {
-                    Some(end_index) => {
-                        iter.nth(end_index - 1);
-                        GrammarItem::Brackets(Brackets::Parentheses(Box::new(
-                            GrammarItem::parse_string(typst[i + 1..end_index + i].to_string()),
-                        )))
+
+    // Parse a string into a Vec of GrammarItems (wrapped inside a GrammarItem::Content type)
+    pub fn parse_string(typst: &str) -> GrammarItem {
+        let mut items: Vec<GrammarItem> = Vec::new();
+        let mut chars = typst.char_indices().peekable();
+
+        while let Some((i, char)) = chars.next() {
+            items.push(match char {
+                '(' | '{' | '[' => {
+                    if let Some((end_index, _)) = find_matching_bracket(&typst[i..], char) {
+                        let content = &typst[i + 1..i + end_index];
+                        let bracket_type = match char {
+                            '(' => Brackets::Parentheses,
+                            '{' => Brackets::Squirly,
+                            '[' => Brackets::Square,
+                            _ => unreachable!(),
+                        };
+                        skip_to_index(&mut chars, i + end_index);
+                        GrammarItem::Brackets(bracket_type(Box::new(GrammarItem::parse_string(
+                            content,
+                        ))))
+                    } else {
+                        GrammarItem::Unknown(char)
                     }
-                    None => GrammarItem::Symbol('('.to_string()),
                 }
-            } else if char == '{' {
-                match typst[i..].find('}') {
-                    Some(end_index) => {
-                        iter.nth(end_index - 1);
-                        GrammarItem::Brackets(Brackets::Squirly(Box::new(
-                            GrammarItem::parse_string(typst[i + 1..end_index + i].to_string()),
-                        )))
-                    }
-                    None => GrammarItem::Symbol('{'.to_string()),
-                }
-            } else if char == '[' {
-                match typst[i..].find(']') {
-                    Some(end_index) => {
-                        iter.nth(end_index - 1);
-                        GrammarItem::Brackets(Brackets::Square(Box::new(
-                            GrammarItem::parse_string(typst[i + 1..end_index + i].to_string()),
-                        )))
-                    }
-                    None => GrammarItem::Symbol('['.to_string()),
-                }
-            } else if char == '_' {
-                let next_char = iter.next();
-                if next_char == Some((i + 1, '(')) {
-                    match typst[i..].find(')') {
-                        Some(end_index) => {
-                            iter.nth(end_index - 2);
-                            GrammarItem::Brackets(Brackets::Subscript(Box::new(
-                                GrammarItem::parse_string(typst[i + 2..end_index + i].to_string()),
+                '_' | '^' => {
+                    if let Some((_, '(')) = chars.peek() {
+                        chars.next(); // Consume '('
+                        if let Some((end_index, _)) = find_matching_bracket(&typst[i..], '(') {
+                            let content = &typst[i + 2..i + end_index];
+                            let bracket_type = if char == '_' {
+                                Brackets::Subscript
+                            } else {
+                                Brackets::Superscript
+                            };
+                            skip_to_index(&mut chars, i + end_index + 1);
+                            GrammarItem::Brackets(bracket_type(Box::new(
+                                GrammarItem::parse_string(content),
                             )))
+                        } else {
+                            continue;
                         }
-                        None => GrammarItem::Brackets(Brackets::Subscript(Box::new(
-                            GrammarItem::Symbol('('.to_string()),
-                        ))),
-                    }
-                } else if next_char.is_none() {
-                    GrammarItem::Symbol('_'.to_string())
-                } else {
-                    GrammarItem::Brackets(Brackets::Subscript(Box::new(GrammarItem::Symbol(
-                        typst[i + 2..i + 3].to_string(),
-                    ))))
-                }
-            } else if char == '^' {
-                let next_char = iter.next();
-                if next_char == Some((i + 1, '(')) {
-                    match typst[i..].find(')') {
-                        Some(end_index) => {
-                            iter.nth(end_index - 2);
-                            GrammarItem::Brackets(Brackets::Superscript(Box::new(
-                                GrammarItem::parse_string(typst[i + 2..end_index + i].to_string()),
-                            )))
-                        }
-                        None => GrammarItem::Brackets(Brackets::Superscript(Box::new(
-                            GrammarItem::Symbol('('.to_string()),
-                        ))),
-                    }
-                } else if next_char.is_none() {
-                    GrammarItem::Symbol('^'.to_string())
-                } else {
-                    GrammarItem::Brackets(Brackets::Superscript(Box::new(GrammarItem::Symbol(
-                        typst[i + 2..i + 3].to_string(),
-                    ))))
-                }
-            } else if char.is_ascii_alphabetic() || char == '_' {
-                let next_char = typst.chars().nth(i + 1).unwrap_or(' ');
-                if next_char.is_ascii_alphabetic() || next_char == '_' {
-                    let end_index = typst[i..].find(|c: char| !c.is_ascii_alphabetic() && c != '_');
-                    match end_index {
-                        Some(end_index) => {
-                            iter.nth(end_index);
-                            GrammarItem::Symbol(name_to_symbol(typst[i..i + end_index].to_string()))
-                        }
-                        None => {
-                            item.push(GrammarItem::Symbol(name_to_symbol(typst[i..].to_string())));
-                            return GrammarItem::Content(item);
+                    } else {
+                        let bracket_type = if char == '_' {
+                            Brackets::Subscript
+                        } else {
+                            Brackets::Superscript
+                        };
+                        match chars.next() {
+                            Some((_, c)) => GrammarItem::Brackets(bracket_type(Box::new(
+                                GrammarItem::Unknown(c),
+                            ))),
+                            None => GrammarItem::Unknown('_'),
                         }
                     }
-                    // GrammarItem::Symbol(())
-                } else {
-                    GrammarItem::Symbol(char.to_string())
                 }
-            } else if char == '"' {
-                match typst[i..].find('"') {
-                    Some(end_index) => {
-                        iter.nth(end_index - 1);
-                        GrammarItem::Literal(typst[i + 1..end_index + i].to_string())
+                '"' => {
+                    if let Some((end_index, _)) = typst[i + 1..].find('"').map(|x| (i + 1 + x, '"'))
+                    {
+                        let literal_content = &typst[i + 1..end_index];
+                        skip_to_index(&mut chars, end_index);
+                        GrammarItem::Literal(literal_content.to_string())
+                    } else {
+                        GrammarItem::Unknown('"')
                     }
-                    None => GrammarItem::Symbol('"'.to_string()),
                 }
-            } else {
-                GrammarItem::Symbol(char.to_string())
-            })
+                c if c.is_ascii_alphabetic() => {
+                    let end_index = typst[i..]
+                        .find(|c: char| !c.is_ascii_alphabetic() && c != '.')
+                        .unwrap_or(typst.len() - i);
+                    let symbol = &typst[i..i + end_index];
+                    skip_to_index(&mut chars, i + end_index);
+                    GrammarItem::Symbol(name_to_symbol(symbol.to_string()))
+                }
+                c if !c.is_whitespace() => {
+                    let end_index = typst[i..]
+                        .find(|c: char| c.is_whitespace())
+                        .unwrap_or(typst.len() - i);
+                    let symbol = &typst[i..i + end_index];
+                    skip_to_index(&mut chars, i + end_index);
+                    GrammarItem::Symbol(expand_math_shortcut(symbol).to_string())
+                }
+                _ => GrammarItem::Unknown(char),
+            });
         }
-        GrammarItem::Content(item)
+        GrammarItem::Content(items)
     }
+}
+fn skip_to_index<I>(iter: &mut std::iter::Peekable<I>, index: usize)
+where
+    I: Iterator<Item = (usize, char)>,
+{
+    while let Some(&(current_idx, _)) = iter.peek() {
+        if current_idx >= index {
+            break;
+        }
+        iter.next();
+    }
+}
+fn find_matching_bracket(input: &str, opening: char) -> Option<(usize, char)> {
+    let closing = match opening {
+        '(' => ')',
+        '{' => '}',
+        '[' => ']',
+        _ => return None,
+    };
+
+    let mut depth = 0;
+    for (i, char) in input.char_indices() {
+        match char {
+            c if c == opening => depth += 1,
+            c if c == closing => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some((i, c));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 #[test]
 fn render_test() {
     let nodes: GrammarItem = GrammarItem::Content(vec![
-        GrammarItem::Symbol('a'.to_string()),
+        GrammarItem::Unknown('a'),
         GrammarItem::Brackets(Brackets::Subscript(Box::new(GrammarItem::Literal(
             "text".to_string(),
         )))),
-        GrammarItem::Symbol(' '.to_string()),
+        GrammarItem::Unknown(' '),
         GrammarItem::Brackets(Brackets::Squirly(Box::new(GrammarItem::Content(vec![
-            GrammarItem::Symbol('a'.to_string()),
-            GrammarItem::Symbol(' '.to_string()),
-            GrammarItem::Symbol('+'.to_string()),
-            GrammarItem::Symbol(' '.to_string()),
-            GrammarItem::Symbol('b'.to_string()),
+            GrammarItem::Unknown('a'),
+            GrammarItem::Unknown(' '),
+            GrammarItem::Unknown('+'),
+            GrammarItem::Unknown(' '),
+            GrammarItem::Unknown('b'),
         ])))),
         GrammarItem::Brackets(Brackets::Superscript(Box::new(GrammarItem::Content(vec![
             GrammarItem::Symbol("36.6".to_string()),

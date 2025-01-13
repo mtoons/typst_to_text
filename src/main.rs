@@ -4,13 +4,14 @@ use parsing::GrammarItem;
 use std::env;
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
+    let mut args = env::args();
     let mut input: String = Default::default();
+    args.next();
     for elem in args {
-        input.push(' ');
         input.push_str(&elem);
+        input.push(' ');
     }
-    let nodes = GrammarItem::parse_string(input);
+    let nodes = GrammarItem::parse_string(&input);
 
     println!("{}", nodes.render());
 }

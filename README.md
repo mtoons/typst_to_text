@@ -10,3 +10,5 @@ $ typst_to_text (u_n) n in NN
 ```
 
 As this is my first rust project I'm very open to feedback on what i could improve.
+
+Bugs: chars that are not alphabetical, part of a known symbol or a known shorthand are ignored.

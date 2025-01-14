@@ -66,7 +66,9 @@ impl GrammarItem {
                 text.push_str(symbol);
             }
             GrammarItem::Literal(literal) => {
+                text.push('"');
                 text.push_str(literal);
+                text.push('"');
             }
             GrammarItem::Unknown(c) => {
                 text.push(*c);
@@ -100,19 +102,38 @@ impl GrammarItem {
                     }
                 }
                 '_' | '^' => {
-                    if let Some((_, '(')) = chars.peek() {
-                        chars.next(); // Consume '('
-                        if let Some((end_index, _)) = find_matching_bracket(&typst[i..], '(') {
-                            let content = &typst[i + 2..i + end_index];
-                            let bracket_type = if char == '_' {
+                    if let Some((_, '(')) | Some((_, '{')) | Some((_, '[')) | Some((_, '"')) =
+                        chars.peek()
+                    {
+                        let mut next_char = chars.next().unwrap().1;
+                        let mut offset = if chars.peek().unwrap_or(&(i + 2, ' ')).1 == '"' {
+                            next_char = chars.next().unwrap().1;
+                            1
+                        } else {
+                            0
+                        };
+                        if next_char == '"' {
+                            offset = 1;
+                        }
+                        if let Some((end_index, _)) =
+                            find_matching_bracket(&typst[i + offset * 2 + 1..], next_char)
+                        {
+                            let content = &typst[i + 2..i + end_index + offset * 2 + 1];
+                            let script_type = if char == '_' {
                                 Brackets::Subscript
                             } else {
                                 Brackets::Superscript
                             };
-                            skip_to_index(&mut chars, i + end_index + 1);
-                            GrammarItem::Brackets(bracket_type(Box::new(
-                                GrammarItem::parse_string(content),
-                            )))
+                            skip_to_index(&mut chars, i + end_index + offset * 2 + 2);
+                            if next_char == '"' || next_char == '[' {
+                                GrammarItem::Brackets(script_type(Box::new(GrammarItem::Literal(
+                                    content.to_string(),
+                                ))))
+                            } else {
+                                GrammarItem::Brackets(script_type(Box::new(
+                                    GrammarItem::parse_string(content),
+                                )))
+                            }
                         } else {
                             continue;
                         }
@@ -132,8 +153,8 @@ impl GrammarItem {
                 }
                 '"' => {
                     if let Some((end_index, _)) = find_matching_bracket(&typst[i + 1..], '"') {
-                        let literal_content = &typst[i + 1..end_index];
-                        skip_to_index(&mut chars, i + end_index);
+                        let literal_content = &typst[i + 1..end_index + i + 1];
+                        skip_to_index(&mut chars, end_index + i + 2);
                         GrammarItem::Literal(literal_content.to_string())
                     } else {
                         GrammarItem::Unknown('"')
@@ -151,12 +172,12 @@ impl GrammarItem {
                     let end_index = typst[i..]
                         .find(|c: char| c.is_whitespace())
                         .unwrap_or(typst.len() - i);
-                    let symbol = expand_math_shortcut(&typst[i..i + end_index]).to_string();
-                    if symbol.len() <= 1 {
+                    let symbol = expand_math_shortcut(&typst[i..i + end_index]);
+                    if symbol.is_empty() {
                         GrammarItem::Unknown(char)
                     } else {
                         skip_to_index(&mut chars, i + end_index);
-                        GrammarItem::Symbol(symbol)
+                        GrammarItem::Symbol(symbol.to_string())
                     }
                 }
                 _ => GrammarItem::Unknown(char),
@@ -188,10 +209,10 @@ fn find_matching_bracket(input: &str, opening: char) -> Option<(usize, char)> {
     let mut depth = 0;
     for (i, char) in input.char_indices() {
         match char {
-            c if c == opening => depth += 1,
+            c if c == opening && opening != '"' => depth += 1,
             c if c == closing => {
                 depth -= 1;
-                if depth == 0 {
+                if depth == 0 || opening == '"' {
                     return Some((i, c));
                 }
             }

@@ -1,4 +1,4 @@
 [package]
 name = "typst_to_text"
 version = "0.1.1"
-edition = "2025"
+edition = "2021"

@@ -152,8 +152,8 @@ impl GrammarItem {
                 }
                 '"' => {
                     if let Some((end_index, _)) = find_matching_bracket(&typst[i + 1..], '"') {
-                        let literal_content = &typst[i + 1..end_index + i];
-                        skip_to_index(&mut chars, end_index + i + 1);
+                        let literal_content = &typst[i + 1..end_index + i + 1];
+                        skip_to_index(&mut chars, end_index + i + 2);
                         GrammarItem::Literal(literal_content.to_string())
                     } else {
                         GrammarItem::Unknown('"')

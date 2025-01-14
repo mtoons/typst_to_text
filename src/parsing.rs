@@ -1,6 +1,7 @@
 use crate::text_tables::{expand_math_shortcut, name_to_symbol, subscript, superscript};
 
 // Lexical item can contain several copies of itself or a more concrete type
+#[derive(Debug, PartialEq)]
 pub enum GrammarItem {
     Content(Vec<GrammarItem>),
     Brackets(Brackets),
@@ -10,6 +11,7 @@ pub enum GrammarItem {
 }
 
 // Different types of brackets
+#[derive(Debug, PartialEq)]
 pub enum Brackets {
     Parentheses(Box<GrammarItem>),
     Squirly(Box<GrammarItem>),
@@ -66,9 +68,7 @@ impl GrammarItem {
                 text.push_str(symbol);
             }
             GrammarItem::Literal(literal) => {
-                text.push('"');
                 text.push_str(literal);
-                text.push('"');
             }
             GrammarItem::Unknown(c) => {
                 text.push(*c);
@@ -220,6 +220,31 @@ fn find_matching_bracket(input: &str, opening: char) -> Option<(usize, char)> {
         }
     }
     None
+}
+
+#[test]
+fn single_char() {
+    let alphabetic = GrammarItem::parse_string("a");
+    assert_eq!(
+        alphabetic,
+        GrammarItem::Content(vec![GrammarItem::Symbol('a'.to_string())])
+    );
+    assert_eq!(alphabetic.render(), "a".to_string());
+
+    let numeric = GrammarItem::parse_string("5");
+    assert_eq!(
+        numeric,
+        GrammarItem::Content(vec![GrammarItem::Unknown('5')])
+    );
+    assert_eq!(numeric.render(), "5".to_string());
+
+    let utf8 = GrammarItem::parse_string("β");
+    assert_eq!(utf8, GrammarItem::Content(vec![GrammarItem::Unknown('β')]));
+    assert_eq!(utf8.render(), "β".to_string());
+
+    let other = GrammarItem::parse_string(";");
+    assert_eq!(other, GrammarItem::Content(vec![GrammarItem::Unknown(';')]));
+    assert_eq!(other.render(), ";".to_string());
 }
 
 #[test]

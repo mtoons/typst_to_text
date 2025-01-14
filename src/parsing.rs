@@ -19,6 +19,7 @@ pub enum Brackets {
 }
 
 impl Brackets {
+    // render the brackets in suitable fashion
     fn render(&self) -> String {
         let mut text: String = "".to_string();
         match self {
@@ -130,10 +131,9 @@ impl GrammarItem {
                     }
                 }
                 '"' => {
-                    if let Some((end_index, _)) = typst[i + 1..].find('"').map(|x| (i + 1 + x, '"'))
-                    {
+                    if let Some((end_index, _)) = find_matching_bracket(&typst[i + 1..], '"') {
                         let literal_content = &typst[i + 1..end_index];
-                        skip_to_index(&mut chars, end_index);
+                        skip_to_index(&mut chars, i + end_index);
                         GrammarItem::Literal(literal_content.to_string())
                     } else {
                         GrammarItem::Unknown('"')
@@ -151,9 +151,13 @@ impl GrammarItem {
                     let end_index = typst[i..]
                         .find(|c: char| c.is_whitespace())
                         .unwrap_or(typst.len() - i);
-                    let symbol = &typst[i..i + end_index];
-                    skip_to_index(&mut chars, i + end_index);
-                    GrammarItem::Symbol(expand_math_shortcut(symbol).to_string())
+                    let symbol = expand_math_shortcut(&typst[i..i + end_index]).to_string();
+                    if symbol.len() <= 1 {
+                        GrammarItem::Unknown(char)
+                    } else {
+                        skip_to_index(&mut chars, i + end_index);
+                        GrammarItem::Symbol(symbol)
+                    }
                 }
                 _ => GrammarItem::Unknown(char),
             });
@@ -177,6 +181,7 @@ fn find_matching_bracket(input: &str, opening: char) -> Option<(usize, char)> {
         '(' => ')',
         '{' => '}',
         '[' => ']',
+        '"' => '"',
         _ => return None,
     };
 

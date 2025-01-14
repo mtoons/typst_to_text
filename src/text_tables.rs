@@ -1,3 +1,4 @@
+// get the unicode symbols from [typst sym](https://typst.app/docs/reference/symbols/sym/)
 pub fn name_to_symbol(string: String) -> String {
     match string.as_str() {
         "space.third" => "⅓",
@@ -918,6 +919,8 @@ pub fn name_to_symbol(string: String) -> String {
     .to_string()
 }
 
+// Expand [typst Shorthands](https://typst.app/docs/reference/symbols/) to their unicode
+// representation
 pub fn expand_math_shortcut(string: &str) -> &str {
     match string {
         "[|" => "⟦",
@@ -962,6 +965,8 @@ pub fn expand_math_shortcut(string: &str) -> &str {
         _ => "",
     }
 }
+
+// Get the superscript equivalent of a string when available
 pub fn superscript(string: String) -> String {
     let mut result: String = Default::default();
     for c in string.chars() {
@@ -1067,6 +1072,8 @@ fn c_superscript(char: char) -> char {
         _ => '\0',
     }
 }
+
+// Get the subscript equivalent of a string when available
 pub fn subscript(string: String) -> String {
     let mut result: String = Default::default();
     for c in string.chars() {

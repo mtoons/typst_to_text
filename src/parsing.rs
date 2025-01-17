@@ -1,5 +1,9 @@
 use crate::text_tables::{expand_math_shortcut, name_to_symbol, subscript, superscript};
 
+pub fn typst_to_text(typst: &str) -> String {
+    GrammarItem::parse_string(typst).render()
+}
+
 // Lexical item can contain several copies of itself or a more concrete type
 #[derive(Debug, PartialEq)]
 pub enum GrammarItem {
@@ -93,10 +97,14 @@ impl GrammarItem {
                             '[' => Brackets::Square,
                             _ => unreachable!(),
                         };
-                        skip_to_index(&mut chars, i + end_index);
-                        GrammarItem::Brackets(bracket_type(Box::new(GrammarItem::parse_string(
-                            content,
-                        ))))
+                        skip_to_index(&mut chars, i + end_index + 1);
+                        if char == '[' {
+                            GrammarItem::Literal(content.to_string())
+                        } else {
+                            GrammarItem::Brackets(bracket_type(Box::new(
+                                GrammarItem::parse_string(content),
+                            )))
+                        }
                     } else {
                         GrammarItem::Unknown(char)
                     }
@@ -245,6 +253,36 @@ fn single_char() {
     let other = GrammarItem::parse_string(";");
     assert_eq!(other, GrammarItem::Content(vec![GrammarItem::Unknown(';')]));
     assert_eq!(other.render(), ";".to_string());
+}
+
+#[test]
+fn parentheses_test() {
+    assert_eq!(typst_to_text("(a_e), {x^2}"), "(aₑ), {x²}".to_string());
+}
+
+#[test]
+fn litterals_test() {
+    assert_eq!(typst_to_text("\"a_e\""), "a_e".to_string());
+    assert_eq!(typst_to_text("[a_e]"), "a_e".to_string());
+}
+
+#[test]
+fn script_test() {
+    assert_eq!(typst_to_text("a_e"), "aₑ".to_string());
+    assert_eq!(typst_to_text("a^e"), "aᵉ".to_string());
+
+    assert_eq!(typst_to_text("a_(text)"), "aₜₑₓₜ".to_string());
+    assert_eq!(typst_to_text("a^(text)"), "aᵗᵉˣᵗ".to_string());
+
+    // Chars for which a subscript/superscript version don't exist (like 'b'/'q') are handled
+    assert_eq!(typst_to_text("n_(a + b)"), "n_(a + b)".to_string());
+    assert_eq!(typst_to_text("n^(a + q)"), "n^(a + q)".to_string());
+
+    // Parentheses only appear for multiple chars
+    assert_eq!(typst_to_text("n_b"), "n_b".to_string());
+    assert_eq!(typst_to_text("n^q"), "n^q".to_string());
+    assert_eq!(typst_to_text("n_(b)"), "n_b".to_string());
+    assert_eq!(typst_to_text("n^(q)"), "n^q".to_string());
 }
 
 #[test]

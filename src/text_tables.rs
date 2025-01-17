@@ -972,7 +972,11 @@ pub fn superscript(string: String) -> String {
     for c in string.chars() {
         let r: char = c_superscript(c);
         if r == '\0' {
-            return format!("^({})", string);
+            if string.len() <= 1 {
+                return format!("^{}", string);
+            } else {
+                return format!("^({})", string);
+            }
         } else {
             result.push(r);
         }
@@ -1079,7 +1083,11 @@ pub fn subscript(string: String) -> String {
     for c in string.chars() {
         let r: char = c_subscript(c);
         if r == '\0' {
-            return format!("_({})", string);
+            if string.len() <= 1 {
+                return format!("_{}", string);
+            } else {
+                return format!("_({})", string);
+            }
         } else {
             result.push(r);
         }

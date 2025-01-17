@@ -1,6 +1,6 @@
 mod parsing;
 mod text_tables;
-use parsing::GrammarItem;
+use parsing::typst_to_text;
 use std::env;
 
 fn main() {
@@ -14,6 +14,5 @@ fn main() {
         input.push(' ');
     }
 
-    let nodes = GrammarItem::parse_string(&input); // Call the parsing function
-    println!("{}", nodes.render()); // Call the rendering function
+    println!("{}", typst_to_text(&input)); // Call the rendering function
 }
